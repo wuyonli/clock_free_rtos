@@ -1,0 +1,3 @@
+../Core/Src/hx1838.c:28:6:IR_StartCapture	24	static
+../Core/Src/hx1838.c:41:6:HAL_TIM_IC_CaptureCallback	32	static
+../Core/Src/hx1838.c:102:6:HX1838_Init	8	static

@@ -1,0 +1,10 @@
+../Core/Src/tm1637.c:43:13:delay_us	24	static,ignoring_inline_asm
+../Core/Src/tm1637.c:64:13:TM1637_Start	8	static
+../Core/Src/tm1637.c:78:13:TM1637_Stop	8	static
+../Core/Src/tm1637.c:93:13:TM1637_WriteByte	24	static
+../Core/Src/tm1637.c:121:6:TM1637_Init	8	static
+../Core/Src/tm1637.c:137:6:TM1637_SetBrightness	16	static
+../Core/Src/tm1637.c:148:6:TM1637_DisplayDecimal	24	static
+../Core/Src/tm1637.c:173:6:TM1637_DisplayRaw	16	static
+../Core/Src/tm1637.c:186:6:TM1637_Clear	16	static
+../Core/Src/tm1637.c:206:6:TM1637_SetDigit	24	static
