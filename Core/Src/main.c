@@ -57,6 +57,7 @@ static uint8_t uart_rx_byte = 0;             // 单字节中断接收缓冲
 static char uart_line[32];                   // 一行接收缓冲
 static volatile uint8_t uart_line_len = 0;   // 已接收字节数
 static volatile uint8_t uart_line_ready = 0; // 1=收到完整一行
+static volatile uint8_t rx_led_flag = 0;     // 1=收到一行 ESP 数据，LED2 任务消费后清零
 
 // ESP8266 解析出的时间（仅任务上下文访问）
 static uint8_t esp_hour = 0;
@@ -359,6 +360,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     if (uart_rx_byte == '\n')
     {
       // 收到换行符：一行结束
+      rx_led_flag = 1;   // 通知 LED2 任务：收到一行数据，闪一下
       if (uart_line_len >= 19)   // "YYYY-MM-DD HH:MM:SS" 至少 19 字符
       {
         uart_line[uart_line_len] = '\0';
@@ -584,11 +586,19 @@ void StartLedTask(void const * argument)
 void StartLed2Task(void const * argument)
 {
   /* USER CODE BEGIN StartLed2Task */
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);   // 初始灭（LED 低电平点亮）
+
   /* Infinite loop */
   for(;;)
   {
-    HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-    osDelay(250);
+    if (rx_led_flag)
+    {
+      rx_led_flag = 0;
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET); // 亮（低电平）
+      osDelay(500);
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);   // 灭（高电平）
+    }
+    osDelay(10);   // 轮询间隔
   }
   /* USER CODE END StartLed2Task */
 }
