@@ -477,6 +477,7 @@ void StartClockTask(void const * argument)
     {
       hour   = esp_hour;
       minute = esp_minute;
+      ir_key = 0; // 丢弃 ESP 在线期间误按的红外键，避免标志滞留到掉线后突然调时
     }
     else
     {
