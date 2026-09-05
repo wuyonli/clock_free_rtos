@@ -50,7 +50,7 @@ UART_HandleTypeDef huart3;
 osThreadId LED_TaskHandle;
 osThreadId LED2_TaskHandle;
 /* USER CODE BEGIN PV */
-static volatile uint8_t ir_key = 0; // 红外按键标志：0=无，1/2/3=按键
+static volatile uint8_t ir_key = 0; // 红外按键标志：0=无，1/2/3=调时/分/秒，4=同步网络时间到 DS1302
 
 // ESP8266 串口接收缓冲（USART3，中断写 / 任务读）
 static uint8_t uart_rx_byte = 0;             // 单字节中断接收缓冲
@@ -61,6 +61,11 @@ static volatile uint8_t uart_line_ready = 0; // 1=收到完整一行
 // ESP8266 解析出的时间（仅任务上下文访问）
 static uint8_t esp_hour = 0;
 static uint8_t esp_minute = 0;
+static uint8_t esp_year = 0;           // 年（2位，0-99，表示 2000-2099）
+static uint8_t esp_month = 0;
+static uint8_t esp_date = 0;
+static uint8_t esp_second = 0;
+static uint8_t esp_weekday = 0;        // 星期（1=周日 .. 7=周六）
 static uint8_t esp_has_time = 0;       // 1=已收到过 ESP 时间
 static uint32_t esp_last_rx_tick = 0;  // 最后收到 ESP 时间的时间戳(ms)
 /* USER CODE END PV */
@@ -420,8 +425,25 @@ void HX1838_OnReceive(uint8_t addr, uint8_t cmd, uint8_t repeat)
         case IR_KEY_1: ir_key = 1; break;
         case IR_KEY_2: ir_key = 2; break;
         case IR_KEY_3: ir_key = 3; break;
+        case IR_KEY_4: ir_key = 4; break;
         default: break;
     }
+}
+
+// 把缓存的 ESP 网络时间写回 DS1302（23:50 自动校准与按键4 手动同步共用）
+static void ESP_SyncToDS1302(void)
+{
+  if (!esp_has_time) return; // 还没收到过网络时间，无法同步
+
+  DS1302_Time_t t;
+  t.year   = esp_year;
+  t.month  = esp_month;
+  t.date   = esp_date;
+  t.hour   = esp_hour;
+  t.minute = esp_minute;
+  t.second = esp_second;
+  t.day    = esp_weekday;
+  DS1302_SetTime(&t);
 }
 
 // 主时钟任务：显示 HH:MM，ESP 时间优先，DS1302 兜底，每天 23:50 校准一次
@@ -443,8 +465,13 @@ void StartClockTask(void const * argument)
       uart_line_ready = 0;
       if (ESP_ParseTime(&year, &month, &date, &h, &m, &s))
       {
-        esp_hour   = h;
-        esp_minute = m;
+        esp_hour    = h;
+        esp_minute  = m;
+        esp_year    = (uint8_t)(year % 100);
+        esp_month   = month;
+        esp_date    = date;
+        esp_second  = s;
+        esp_weekday = ESP_CalcWeekday(year, month, date);
         esp_has_time = 1;
         esp_last_rx_tick = HAL_GetTick();
 
@@ -453,15 +480,7 @@ void StartClockTask(void const * argument)
         {
           if (!esp_calibrated_today)
           {
-            DS1302_Time_t t;
-            t.year   = (uint8_t)(year % 100);
-            t.month  = month;
-            t.date   = date;
-            t.hour   = h;
-            t.minute = m;
-            t.second = s;
-            t.day    = ESP_CalcWeekday(year, month, date);
-            DS1302_SetTime(&t);
+            ESP_SyncToDS1302();
             esp_calibrated_today = 1;
           }
         }
@@ -469,6 +488,16 @@ void StartClockTask(void const * argument)
         {
           esp_calibrated_today = 0;   // 离开 23:50，复位标志供下一天使用
         }
+      }
+    }
+
+    // ---- 1.5 按键4：手动把网络时间同步到 DS1302（仅当 3 秒内收到过，保证时间新鲜） ----
+    if (ir_key == 4)
+    {
+      ir_key = 0;
+      if (esp_has_time && (HAL_GetTick() - esp_last_rx_tick) < 3000U)
+      {
+        ESP_SyncToDS1302();
       }
     }
 
