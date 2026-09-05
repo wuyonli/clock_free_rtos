@@ -1,3 +1,0 @@
-../Core/Src/hx1838.c:28:6:IR_StartCapture	1
-../Core/Src/hx1838.c:41:6:HAL_TIM_IC_CaptureCallback	13
-../Core/Src/hx1838.c:102:6:HX1838_Init	1
